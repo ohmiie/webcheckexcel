@@ -1,21 +1,52 @@
 import streamlit as st
 import openpyxl
+import pandas as pd
 
 # ---------------------------------------------------------
 # การตั้งค่าหน้าเว็บ
 # ---------------------------------------------------------
 st.set_page_config(page_title="ระบบประเมินทักษะ Excel", layout="wide", page_icon="📊")
 
+# สร้างตัวแปรเก็บข้อมูลตารางคะแนนรวม (ถ้ายังไม่มีให้สร้างใหม่)
+if 'results_df' not in st.session_state:
+    st.session_state['results_df'] = pd.DataFrame(columns=[
+        "ลำดับ", "โรงเรียน", "สังกัด", "จังหวัด", "ทีม", "ชื่อ-สกุล ผู้เข้าแข่งขัน",
+        "การจัดเตรียมแผ่นงานและบันทึกข้อมูล\n(1 คะแนน)",
+        'การคำนวณและประมวลผลข้อมูลใน Sheet "Student_Scores" (24 คะแนน)',
+        'การเชื่อมโยงและจัดเรียงข้อมูล\nใน Sheet "Student_Scores2"\n(7 คะแนน)',
+        'การรายงานตารางสรุปข้อมูลใน Sheet "Report_Table"\n(12 คะแนน)',
+        'การสร้างแผ่นงานประมวลผลเกรด Sheet "Grade_Summary"\n(2 คะแนน)',
+        'การคำนวณเกรดและสถานะประเมินใน Sheet "Grade_Summary"\n(18 คะแนน)',
+        'การเพิ่มแผ่นงานแดชบอร์ด Sheet "Report_Dashboard"\n(2 คะแนน)',
+        'การสร้างแดชบอร์ดสรุปผลและแผนภูมิใน Sheet "Report_Dashboard"\n(24 คะแนน)',
+        'การตั้งค่าหน้ากระดาษและการพิมพ์รูปแบบ PDF\n(10 คะแนน)',
+        "รวม\n(100 คะแนน)"
+    ])
+
 st.title("📊 ระบบประเมินและให้คะแนนทักษะวิชาการ Excel")
-st.markdown("ระบบจะทำการตรวจข้อมูล สูตร และโครงสร้างเบื้องต้นอัตโนมัติ ส่วนกราฟ การตั้งค่าหน้ากระดาษ และไฟล์ PDF จะให้ผู้ตรวจประเมินด้วยตนเอง (Manual Checklist) ผ่านหน้านี้")
 
-uploaded_file = st.file_uploader("📂 อัปโหลดไฟล์ Excel ของผู้เข้าแข่งขัน (.xlsx)", type=["xlsx"])
+# ==========================================
+# ส่วนฟอร์มกรอกข้อมูลผู้เข้าแข่งขัน
+# ==========================================
+with st.expander("📝 1. กรอกข้อมูลผู้เข้าแข่งขัน", expanded=True):
+    col_i1, col_i2, col_i3 = st.columns(3)
+    order_no = col_i1.text_input("ลำดับ", placeholder="เช่น 1")
+    school = col_i2.text_input("โรงเรียน", placeholder="เช่น วิทยาลัยอาชีวศึกษา...")
+    affiliation = col_i3.text_input("สังกัด", placeholder="เช่น เทศบาลนครนครปฐม")
+    
+    col_i4, col_i5, col_i6 = st.columns(3)
+    province = col_i4.text_input("จังหวัด", placeholder="เช่น นครปฐม")
+    team = col_i5.text_input("ทีม", placeholder="เช่น ทีม A")
+    student_name = col_i6.text_input("ชื่อ-สกุล ผู้เข้าแข่งขัน", placeholder="เช่น นางสาวเม ทา ซิน ปุย")
 
-# ตัวแปรเก็บคะแนนรวม
-total_score = 0
-max_score = 100
+# ==========================================
+# อัปโหลดไฟล์
+# ==========================================
+uploaded_file = st.file_uploader("📂 2. อัปโหลดไฟล์ Excel ของผู้เข้าแข่งขัน (.xlsx)", type=["xlsx"])
 
-# ฟังก์ชันตัวช่วยดึงข้อความจากเซลล์อย่างปลอดภัย (กัน Error กรณีเซลล์ว่าง)
+# ตัวแปรเก็บคะแนนแต่ละหมวด
+c1, c2, c3, c4, c5, c6, c7, c8, c9 = 0, 0, 0, 0, 0, 0, 0, 0, 0
+
 def get_safe_formula(cell):
     if cell and cell.value:
         return str(cell.value).upper()
@@ -25,220 +56,143 @@ if uploaded_file is not None:
     st.info("🔄 กำลังประมวลผลไฟล์ กรุณารอสักครู่...")
     
     try:
-        # โหลดไฟล์แบบดึงสูตร (data_only=False) และดึงค่า (data_only=True)
         wb_formula = openpyxl.load_workbook(uploaded_file, data_only=False)
         wb_data = openpyxl.load_workbook(uploaded_file, data_only=True)
         sheet_names = wb_formula.sheetnames
         
-        # คอลัมน์สองฝั่งสำหรับแสดงผล
-        col1, col2 = st.columns([1.5, 1])
+        col_left, col_right = st.columns([1.5, 1])
         
-        with col1:
-            st.header("🤖 ส่วนที่ 1: ตรวจด้วยระบบอัตโนมัติ (Auto-Grading)")
+        with col_left:
+            st.header("🤖 ส่วนตรวจอัตโนมัติ (Auto-Grading)")
             
-            # ==========================================
-            # ข้อ 1: การจัดเตรียมแผ่นงานและบันทึกข้อมูล (3 คะแนน)
-            # ==========================================
-            st.subheader("ส่วนที่ 1: การจัดเตรียมแผ่นงาน (3 คะแนน)")
-            score_1 = 0
+            # --- หมวด 1: เตรียมแผ่นงาน (1 คะแนน) ---
             if "Student_Scores" in sheet_names:
-                score_1 += 1
-                st.write("✅ 1.1 เปลี่ยนชื่อ Sheet เป็น 'Student_Scores' (1/1)")
-                
-                # ตรวจข้อ 1.2 รหัสนักศึกษา 50 คน
-                ws = wb_data["Student_Scores"]
-                if ws.max_row >= 50:
-                    score_1 += 2
-                    st.write("✅ 1.2 ป้อนข้อมูลลำดับ 1-50 และรหัสครบถ้วน (2/2)")
-                else:
-                    st.write("❌ 1.2 ข้อมูลไม่ครบ 50 รายการ (0/2)")
-            else:
-                st.write("❌ 1.1 ไม่พบชีต 'Student_Scores' (0/1)")
-                st.write("❌ 1.2 ไม่สามารถตรวจจำนวนข้อมูลได้ (0/2)")
-            total_score += score_1
-
-            # ==========================================
-            # ข้อ 2: การคำนวณและประมวลผลข้อมูล (22 คะแนน)
-            # ==========================================
-            st.subheader("ส่วนที่ 2: การคำนวณและประมวลผล 'Student_Scores' (22 คะแนน)")
-            score_2 = 0
+                c1 += 1
+                st.write("✅ 1.1 เปลี่ยนชื่อ Sheet เป็น 'Student_Scores'")
+            
+            # --- หมวด 2: คำนวณ Student_Scores (สูตร 18 + Manual 6 = 24 คะแนน) ---
             if "Student_Scores" in sheet_names:
                 ws_form = wb_formula["Student_Scores"]
                 ws_dat = wb_data["Student_Scores"]
                 
-                # 2.1 ข้อมูลครบ
-                if ws_dat.max_column >= 10:
-                    score_2 += 2; st.write("✅ 2.1 นำเข้าข้อมูลคะแนนดิบและอื่นๆ ครบถ้วน (2/2)")
-                else: st.write("❌ 2.1 ข้อมูลคอลัมน์ไม่ครบถ้วน (0/2)")
-
-                # 2.2 เช็คสูตร SUM 
-                sum_found = any("SUM(" in get_safe_formula(ws_form[f'I{r}']) for r in range(3, 10))
-                if sum_found: score_2 += 3; st.write("✅ 2.2 คำนวณผลรวมคะแนนดิบด้วยฟังก์ชัน SUM (3/3)")
-                else: st.write("❌ 2.2 ไม่พบสูตร SUM ในคอลัมน์ผลรวม (0/3)")
-
-                # 2.3 เช็คสูตร IF หาคะแนนหักขาดเรียน
-                if_found = any("IF(" in get_safe_formula(ws_form[f'K{r}']) for r in range(3, 10))
-                if if_found: score_2 += 4; st.write("✅ 2.3 คำนวณคะแนนหักขาดเรียนด้วย IF (4/4)")
-                else: st.write("❌ 2.3 ไม่พบสูตร IF ในการหักคะแนนขาดเรียน (0/4)")
-
-                # 2.4 เช็คสูตรลบธรรมดา (-) สำหรับคะแนนสุทธิ
-                sub_found = any("-" in get_safe_formula(ws_form[f'L{r}']) for r in range(3, 10))
-                if sub_found: score_2 += 2; st.write("✅ 2.4 คำนวณคะแนนสุทธิถูกต้อง (2/2)")
-                else: st.write("❌ 2.4 ไม่พบการคำนวณคะแนนสุทธิ (0/2)")
-
-                # 2.5 Named Range "Net_Score_Data" (อัปเดตโค้ดใหม่แล้ว)
-                if "Net_Score_Data" in wb_formula.defined_names:
-                    score_2 += 2; st.write("✅ 2.5 กำหนดชื่อ Named Range 'Net_Score_Data' ถูกต้อง (2/2)")
-                else: 
-                    st.write("❌ 2.5 ไม่พบ Named Range ชื่อ 'Net_Score_Data' (0/2)")
-
-                # 2.6 RANK หรือ RANK.EQ
-                rank_found = any("RANK" in get_safe_formula(ws_form[f'M{r}']) for r in range(3, 10))
-                if rank_found: score_2 += 3; st.write("✅ 2.6 หาอันดับด้วยฟังก์ชัน RANK หรือ RANK.EQ (3/3)")
-                else: st.write("❌ 2.6 ไม่พบสูตร RANK สำหรับหาอันดับคะแนน (0/3)")
+                if ws_dat.max_row >= 50: c2 += 2
+                if ws_dat.max_column >= 10: c2 += 2
                 
-                st.warning("⚠️ ข้อ 2.7 (Sparklines 3 คะแนน) และ 2.8 (ฟังก์ชันท้ายตาราง 3 คะแนน) โปรดตรวจด้วยตนเองด้านขวามือ")
-            else:
-                st.error("❌ ข้ามการตรวจส่วนที่ 2 เนื่องจากไม่พบชีต 'Student_Scores'")
-            total_score += score_2
+                if any("SUM(" in get_safe_formula(ws_form[f'I{r}']) for r in range(3, 10)): c2 += 3
+                if any("IF(" in get_safe_formula(ws_form[f'K{r}']) for r in range(3, 10)): c2 += 4
+                if any("-" in get_safe_formula(ws_form[f'L{r}']) for r in range(3, 10)): c2 += 2
+                
+                if "Net_Score_Data" in wb_formula.defined_names: c2 += 2
+                
+                if any("RANK" in get_safe_formula(ws_form[f'M{r}']) for r in range(3, 10)): c2 += 3
+                
+                st.success(f"คำนวณ Student_Scores อัตโนมัติได้: {c2}/18 คะแนน (รอ Manual อีก 6)")
 
-            # ==========================================
-            # ข้อ 3: การเชื่อมโยงและจัดเรียง Student_Scores2 (7 คะแนน)
-            # ==========================================
-            st.subheader("ส่วนที่ 3: ชีต 'Student_Scores2' (7 คะแนน)")
-            score_3 = 0
+            # --- หมวด 3: Student_Scores2 (สูตร 4 + Manual 3 = 7 คะแนน) ---
             if "Student_Scores2" in sheet_names:
-                score_3 += 1; st.write("✅ 3.1 เปลี่ยนชื่อ Sheet เป็น 'Student_Scores2' (1/1)")
-                
-                # เช็คการ Link sheet
+                c3 += 1
                 ws_form2 = wb_formula["Student_Scores2"]
-                linked = any("STUDENT_SCORES!" in get_safe_formula(ws_form2[f'B{r}']) for r in range(2, 10))
-                if linked: score_3 += 3; st.write("✅ 3.2 ดึงข้อมูลเชื่อมโยง (Link Sheet) มาวางถูกต้อง (3/3)")
-                else: st.write("❌ 3.2 ไม่พบการทำ Link Sheet (0/3)")
-                
-                st.warning("⚠️ ข้อ 3.3 (การ Sort ข้อมูล 3 คะแนน) โปรดตรวจด้วยตนเองด้านขวามือ")
-            else: st.write("❌ 3.1 ไม่พบชีต 'Student_Scores2' (0/7)")
-            total_score += score_3
+                if any("STUDENT_SCORES!" in get_safe_formula(ws_form2[f'B{r}']) for r in range(2, 10)): c3 += 3
+                st.success(f"เชื่อมโยง Student_Scores2 อัตโนมัติได้: {c3}/4 คะแนน (รอ Manual อีก 3)")
 
-            # ==========================================
-            # ข้อ 5 & 6: การประมวลผลเกรด (2 + 18 = 20 คะแนน)
-            # ==========================================
-            st.subheader("ส่วนที่ 5 และ 6: ชีต 'Grade_Summary' (20 คะแนน)")
-            score_56 = 0
+            # --- หมวด 5: สร้าง Grade_Summary (สูตร 1 + Manual 1 = 2 คะแนน) ---
             if "Grade_Summary" in sheet_names:
-                score_56 += 1; st.write("✅ 5.1 สร้างและเปลี่ยนชื่อ Sheet เป็น 'Grade_Summary' (1/1)")
-                
+                c5 += 1
+
+            # --- หมวด 6: คำนวณ Grade_Summary (สูตร 18 = 18 คะแนน) ---
+            if "Grade_Summary" in sheet_names:
                 ws_grade = wb_formula["Grade_Summary"]
-                
-                # 6.1 Link Sheet
-                linked_g = any("STUDENT_SCORES!" in get_safe_formula(ws_grade[f'B{r}']) for r in range(3, 10))
-                if linked_g: score_56 += 4; st.write("✅ 6.1 ดึงข้อมูลเชื่อมโยงมาถูกต้อง (4/4)")
-                else: st.write("❌ 6.1 ไม่พบการ Link Sheet ในตารางเกรด (0/4)")
+                if any("STUDENT_SCORES!" in get_safe_formula(ws_grade[f'B{r}']) for r in range(3, 10)): c6 += 4
+                if any(get_safe_formula(ws_grade[f'F{r}']).count("IF(") >= 4 for r in range(3, 10)): c6 += 8
+                if any("IF(" in get_safe_formula(ws_grade[f'G{r}']) for r in range(3, 10)): c6 += 6
+                st.success(f"คำนวณเกรด Grade_Summary ได้: {c6}/18 คะแนน")
 
-                # 6.2 Nested IF ตัดเกรด
-                nested_if = any(get_safe_formula(ws_grade[f'F{r}']).count("IF(") >= 4 for r in range(3, 10))
-                if nested_if: score_56 += 8; st.write("✅ 6.2 ใช้ Nested IF ตัดเกรด A,B,C,D,F ถูกต้อง (8/8)")
-                else: st.write("❌ 6.2 ไม่พบการใช้ Nested IF หรือซ้อนกันไม่ครบ (0/8)")
-
-                # 6.3 IF สถานะ
-                status_if = any("IF(" in get_safe_formula(ws_grade[f'G{r}']) for r in range(3, 10))
-                if status_if: score_56 += 6; st.write("✅ 6.3 ใช้ฟังก์ชัน IF กำหนดสถานะผ่าน/ไม่ผ่าน (6/6)")
-                else: st.write("❌ 6.3 ไม่พบฟังก์ชัน IF กำหนดสถานะ (0/6)")
-
-                st.warning("⚠️ ข้อ 5.2 (กำหนดโครงสร้างตาราง 1 คะแนน) โปรดตรวจด้วยตนเองด้านขวามือ")
-            else: st.write("❌ ไม่พบชีต 'Grade_Summary' (0/20)")
-            total_score += score_56
-
-            # ==========================================
-            # ข้อ 7: แดชบอร์ดสรุปผล (26 คะแนน)
-            # ==========================================
-            st.subheader("ส่วนที่ 7: ชีต 'Report_Dashboard' (26 คะแนน)")
-            score_7 = 0
+            # --- หมวด 7: แดชบอร์ด (การเพิ่ม Sheet 2 คะแนน) ---
             if "Report_Dashboard" in sheet_names:
-                score_7 += 1; st.write("✅ 7.1 สร้างและเปลี่ยนชื่อ Sheet เป็น 'Report_Dashboard' (1/1)")
-                
+                c7 += 2
+            
+            # --- หมวด 8: แดชบอร์ดสรุปผล (สูตร 12 + Manual 12 = 24 คะแนน) ---
+            if "Report_Dashboard" in sheet_names:
                 ws_dash = wb_formula["Report_Dashboard"]
-                
-                # หา COUNT/COUNTA
                 dash_formulas = " ".join([get_safe_formula(cell) for row in ws_dash.iter_rows() for cell in row if cell.data_type == 'f'])
                 
-                if "COUNT(" in dash_formulas or "COUNTA(" in dash_formulas:
-                    score_7 += 2; st.write("✅ 7.3 ใช้ฟังก์ชัน COUNTA/COUNT หานักศึกษาทั้งหมด (2/2)")
-                else: st.write("❌ 7.3 ไม่พบฟังก์ชัน COUNT/COUNTA (0/2)")
+                if "COUNT(" in dash_formulas or "COUNTA(" in dash_formulas: c8 += 2
+                if dash_formulas.count("COUNTIF(") >= 2: c8 += 10
+                st.success(f"คำนวณ Dashboard อัตโนมัติได้: {c8}/12 คะแนน (รอ Manual อีก 12)")
 
-                if dash_formulas.count("COUNTIF(") >= 2:
-                    score_7 += 10; st.write("✅ 7.4, 7.5, 7.6 ใช้ฟังก์ชัน COUNTIF นับเกรด/กลุ่ม/สถานะ (10/10)")
-                else: st.write("❌ 7.4-7.6 ไม่พบการใช้ COUNTIF ที่เพียงพอ (0/10)")
+        with col_right:
+            st.header("✍️ ส่วนตรวจด้วยสายตา (Manual)")
+            
+            with st.expander("คะแนนส่วนกราฟและรูปแบบ", expanded=True):
+                if st.checkbox("2.7 แทรกกราฟ Line Sparklines (3 คะแนน)"): c2 += 3
+                if st.checkbox("2.8 คำนวณ Average, Max, Min ท้ายตาราง (3 คะแนน)"): c2 += 3
+                if st.checkbox("3.3 จัดเรียงข้อมูล (Sort) 1-50 (3 คะแนน)"): c3 += 3
+                if st.checkbox("5.2 โครงสร้างหัวตาราง Grade_Summary (1 คะแนน)"): c5 += 1
+                if st.checkbox("7.2 โครงสร้าง Dashboard สวยงาม (3 คะแนน)"): c8 += 3
+            
+            with st.expander("ข้อ 4: Report_Table (12 คะแนน)", expanded=True):
+                if st.checkbox("4.1 มีชีต 'Report_Table' (1 คะแนน)"): c4 += 1
+                if st.checkbox("4.2 สร้าง PivotTable สรุปถูกต้อง (5 คะแนน)"): c4 += 5
+                if st.checkbox("4.3 สร้าง PivotChart รูปแบบ Column (3 คะแนน)"): c4 += 3
+                if st.checkbox("4.4 มีเครื่องมือ Slicer 'กลุ่มเรียน' (3 คะแนน)"): c4 += 3
                 
-                st.warning("⚠️ ข้อ 7.2 (แดชบอร์ด), 7.7 (PivotTable), 7.8 (PivotChart), 7.9 (Slicer) โปรดตรวจด้วยตนเองด้านขวามือ")
-            else: st.write("❌ ไม่พบชีต 'Report_Dashboard' (0/26)")
-            total_score += score_7
-            
-        # ==========================================
-        # ส่วนที่ 2: ตรวจด้วยสายตา
-        # ==========================================
-        with col2:
-            st.header("✍️ ส่วนที่ 2: ตรวจด้วยสายตา (Manual Checklist)")
-            st.markdown("ติ๊กถูกในช่องที่นักศึกษาทำถูกต้อง ระบบจะนำคะแนนไปบวกให้โดยอัตโนมัติ")
-            
-            with st.expander("คะแนนส่วนที่เหลือ (กราฟและรูปแบบ)", expanded=True):
-                c_2_7 = st.checkbox("2.7 แทรกกราฟ Line Sparklines คอลัมน์สุดท้าย (3 คะแนน)")
-                c_2_8 = st.checkbox("2.8 คำนวณ Average, Max, Min ท้ายตาราง (3 คะแนน)")
-                c_3_3 = st.checkbox("3.3 จัดเรียงข้อมูล (Sort) ตามอันดับ 1-50 (3 คะแนน)")
-                c_5_2 = st.checkbox("5.2 โครงสร้างตาราง Grade_Summary หัวตาราง 3 แถวถูกต้อง (1 คะแนน)")
-                c_7_2 = st.checkbox("7.2 โครงสร้างและหน้าตา Dashboard สวยงาม (3 คะแนน)")
-            
-            with st.expander("ข้อ 4: Report_Table (PivotTable/Chart)", expanded=True):
-                st.write("ถ้าพบชีต Report_Table ให้คะแนน 1 คะแนน")
-                c_4_1 = st.checkbox("4.1 มีชีต 'Report_Table' (1 คะแนน)")
-                c_4_2 = st.checkbox("4.2 สร้าง PivotTable สรุปจำนวนและค่าเฉลี่ยถูกต้อง (5 คะแนน)")
-                c_4_3 = st.checkbox("4.3 สร้าง PivotChart รูปแบบ Column (3 คะแนน)")
-                c_4_4 = st.checkbox("4.4 มีเครื่องมือ Slicer 'กลุ่มเรียน' ควบคุม (3 คะแนน)")
-                
-            with st.expander("ข้อ 7 (ส่วนกราฟ): Report_Dashboard", expanded=True):
-                c_7_7 = st.checkbox("7.7 สร้าง PivotTable สรุปจำนวนเกรดตามกลุ่มเรียน (4 คะแนน)")
-                c_7_8 = st.checkbox("7.8 สร้าง PivotChart รูปแบบ Column (3 คะแนน)")
-                c_7_9 = st.checkbox("7.9 มีเครื่องมือ Slicer 'กลุ่มเรียน' (3 คะแนน)")
+            with st.expander("ข้อ 7: Report_Dashboard", expanded=True):
+                if st.checkbox("7.7 สร้าง PivotTable สรุปเกรด (4 คะแนน)"): c8 += 4
+                if st.checkbox("7.8 สร้าง PivotChart รูปแบบ Column (3 คะแนน)"): c8 += 3
+                if st.checkbox("7.9 มีเครื่องมือ Slicer 'กลุ่มเรียน' (2 คะแนน)"): c8 += 2
 
             with st.expander("ข้อ 8: ไฟล์ PDF และการพิมพ์ (10 คะแนน)", expanded=True):
-                st.markdown("*คุณต้องดูไฟล์ PDF ที่แนบส่งมาประกอบ*")
-                c_8_1 = st.checkbox("8.1 ตั้งค่า Grade_Summary แนวตั้ง A4, Scale 90% (2 คะแนน)")
-                c_8_1_1 = st.checkbox("8.1.1 Margins (บน/ล่าง 1, ซ้าย/ขวา 0.5, H/F 1) (2 คะแนน)")
-                c_8_1_2 = st.checkbox("8.1.2 มี Header ขวา / Footer กลาง และส่งเป็น PDF (2 คะแนน)")
-                c_8_2 = st.checkbox("8.2 ตั้งค่ากราฟ SEC04 แนวนอน, A4, Margins กำหนดถูก (2 คะแนน)")
-                c_8_3 = st.checkbox("8.3 ส่งเป็น PDF ชื่อไฟล์ 'SEC04' (2 คะแนน)")
+                if st.checkbox("8.1 Grade_Summary แนวตั้ง A4, Scale 90% (2 คะแนน)"): c9 += 2
+                if st.checkbox("8.1.1 Margins (บน/ล่าง 1, ซ้าย/ขวา 0.5, H/F 1) (2 คะแนน)"): c9 += 2
+                if st.checkbox("8.1.2 มี Header ขวา / Footer กลาง และส่งเป็น PDF (2 คะแนน)"): c9 += 2
+                if st.checkbox("8.2 กราฟ SEC04 แนวนอน, A4, Margins (2 คะแนน)"): c9 += 2
+                if st.checkbox("8.3 ส่งเป็น PDF ชื่อไฟล์ 'SEC04' (2 คะแนน)"): c9 += 2
 
-            # รวมคะแนน Checklist
-            manual_score = 0
-            if c_2_7: manual_score += 3
-            if c_2_8: manual_score += 3
-            if c_3_3: manual_score += 3
-            if c_5_2: manual_score += 1
-            if c_7_2: manual_score += 3
-            if c_4_1: manual_score += 1
-            if c_4_2: manual_score += 5
-            if c_4_3: manual_score += 3
-            if c_4_4: manual_score += 3
-            if c_7_7: manual_score += 4
-            if c_7_8: manual_score += 3
-            if c_7_9: manual_score += 3
-            if c_8_1: manual_score += 2
-            if c_8_1_1: manual_score += 2
-            if c_8_1_2: manual_score += 2
-            if c_8_2: manual_score += 2
-            if c_8_3: manual_score += 2
-            
-            final_score = total_score + manual_score
-
-        # ==========================================
-        # สรุปคะแนนภาพรวม
-        # ==========================================
-        st.divider()
-        st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมสุทธิ: {final_score} / {max_score}</h1>", unsafe_allow_html=True)
+        # รวมคะแนนทั้งหมด
+        total_score = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9
         
-        col_res1, col_res2 = st.columns(2)
-        col_res1.metric(label="🤖 คะแนนจากระบบอัตโนมัติ", value=f"{total_score}")
-        col_res2.metric(label="✍️ คะแนนจากการตรวจ Manual", value=f"{manual_score}")
+        st.divider()
+        st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมสุทธิ: {total_score} / 100</h1>", unsafe_allow_html=True)
+        
+        # ==========================================
+        # ปุ่มออกคะแนน (แสดงผลลงตารางบนเว็บ)
+        # ==========================================
+        if st.button("🎯 ออกคะแนน", use_container_width=True):
+            if student_name == "":
+                st.warning("⚠️ กรุณากรอกชื่อผู้เข้าแข่งขันก่อนออกคะแนน")
+            else:
+                new_row = {
+                    "ลำดับ": order_no, 
+                    "โรงเรียน": school, 
+                    "สังกัด": affiliation, 
+                    "จังหวัด": province, 
+                    "ทีม": team, 
+                    "ชื่อ-สกุล ผู้เข้าแข่งขัน": student_name,
+                    "การจัดเตรียมแผ่นงานและบันทึกข้อมูล\n(1 คะแนน)": c1,
+                    'การคำนวณและประมวลผลข้อมูลใน Sheet "Student_Scores" (24 คะแนน)': c2,
+                    'การเชื่อมโยงและจัดเรียงข้อมูล\nใน Sheet "Student_Scores2"\n(7 คะแนน)': c3,
+                    'การรายงานตารางสรุปข้อมูลใน Sheet "Report_Table"\n(12 คะแนน)': c4,
+                    'การสร้างแผ่นงานประมวลผลเกรด Sheet "Grade_Summary"\n(2 คะแนน)': c5,
+                    'การคำนวณเกรดและสถานะประเมินใน Sheet "Grade_Summary"\n(18 คะแนน)': c6,
+                    'การเพิ่มแผ่นงานแดชบอร์ด Sheet "Report_Dashboard"\n(2 คะแนน)': c7,
+                    'การสร้างแดชบอร์ดสรุปผลและแผนภูมิใน Sheet "Report_Dashboard"\n(24 คะแนน)': c8,
+                    'การตั้งค่าหน้ากระดาษและการพิมพ์รูปแบบ PDF\n(10 คะแนน)': c9,
+                    "รวม\n(100 คะแนน)": total_score
+                }
+                st.session_state['results_df'] = pd.concat([st.session_state['results_df'], pd.DataFrame([new_row])], ignore_index=True)
+                st.success(f"✅ เพิ่มคะแนนของ {student_name} ลงตารางแสดงผลด้านล่างเรียบร้อยแล้ว!")
 
     except Exception as e:
-        st.error(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ โปรดเช็คว่าไฟล์ไม่ถูกเข้ารหัสผ่านไว้ รายละเอียด: {e}")
+        st.error(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ รายละเอียด: {e}")
+
+# ==========================================
+# แสดงตารางสรุปผลบนหน้าเว็บ
+# ==========================================
+if not st.session_state['results_df'].empty:
+    st.divider()
+    st.header("📑 ตารางสรุปคะแนน (แสดงผลบนเว็บ)")
+    st.dataframe(st.session_state['results_df'], use_container_width=True)
+    
+    if st.button("🗑️ ล้างข้อมูลตารางทั้งหมด"):
+        st.session_state['results_df'] = st.session_state['results_df'].iloc[0:0] 
+        st.rerun()
