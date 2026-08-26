@@ -83,11 +83,11 @@ if uploaded_file is not None:
                 if sub_found: score_2 += 2; st.write("✅ 2.4 คำนวณคะแนนสุทธิถูกต้อง (2/2)")
                 else: st.write("❌ 2.4 ไม่พบการคำนวณคะแนนสุทธิ (0/2)")
 
-                # 2.5 Named Range "Net_Score_Data"
-                named_ranges = wb_formula.defined_names.definedName
-                if any(nr.name == "Net_Score_Data" for nr in named_ranges):
-                    score_2 += 2; st.write("✅ 2.5 กำหนดชื่อ Named Range 'Net_Score_Data' ถูกต้อง (2/2)")
-                else: st.write("❌ 2.5 ไม่พบ Named Range ชื่อ 'Net_Score_Data' (0/2)")
+               # 2.5 Named Range "Net_Score_Data"
+if "Net_Score_Data" in wb_formula.defined_names:
+    score_2 += 2; st.write("✅ 2.5 กำหนดชื่อ Named Range 'Net_Score_Data' ถูกต้อง (2/2)")
+else: 
+    st.write("❌ 2.5 ไม่พบ Named Range ชื่อ 'Net_Score_Data' (0/2)")
 
                 # 2.6 RANK หรือ RANK.EQ
                 rank_found = any("RANK" in str(ws_form[f'M{r}'].value).upper() for r in range(3, 10))
