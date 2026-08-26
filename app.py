@@ -1,36 +1,18 @@
 import streamlit as st
 import openpyxl
-import pandas as pd
 
 # ---------------------------------------------------------
 # การตั้งค่าหน้าเว็บ
 # ---------------------------------------------------------
 st.set_page_config(page_title="ระบบประเมินทักษะ Excel", layout="wide", page_icon="📊")
 
-# สร้างตัวแปรเก็บข้อมูลตารางคะแนนรวม (ปรับหัวข้อให้กระชับ อ่านง่าย)
-if 'results_df' not in st.session_state:
-    st.session_state['results_df'] = pd.DataFrame(columns=[
-        "ชื่อผู้เข้าแข่งขัน / ชื่อไฟล์",
-        "1. เตรียมแผ่นงาน (1)",
-        "2. คำนวณคะแนน (24)",
-        "3. เชื่อมโยงข้อมูล (7)",
-        "4. สรุป Report (12)",
-        "5. สร้างชีตเกรด (2)",
-        "6. ตัดเกรด (18)",
-        "7. เพิ่มชีตแดชบอร์ด (2)",
-        "8. กราฟแดชบอร์ด (24)",
-        "9. หน้ากระดาษ & PDF (10)",
-        "รวมคะแนน (100)"
-    ])
-
 st.title("📊 ระบบประเมินและให้คะแนนทักษะวิชาการ Excel")
+st.markdown("อัปโหลดไฟล์เพื่อตรวจคะแนนทันที ระบบจะไม่บันทึกหรือจดจำข้อมูลค้างไว้เพื่อความรวดเร็ว")
 
 # ==========================================
-# อัปโหลดไฟล์ & ชื่อนักศึกษา (แบบกระชับ)
+# อัปโหลดไฟล์ (แบบเพียวๆ ไม่มีดึงชื่อ)
 # ==========================================
-col_up1, col_up2 = st.columns([1, 2])
-student_name = col_up1.text_input("👤 ชื่อนักศึกษา (ปล่อยว่างได้ ระบบจะใช้ชื่อไฟล์แทน)")
-uploaded_file = col_up2.file_uploader("📂 อัปโหลดไฟล์ Excel ของนักศึกษา (.xlsx)", type=["xlsx"])
+uploaded_file = st.file_uploader("📂 อัปโหลดไฟล์ Excel (.xlsx)", type=["xlsx"])
 
 # ตัวแปรเก็บคะแนนแต่ละหมวด
 c1, c2, c3, c4, c5, c6, c7, c8, c9 = 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -41,13 +23,10 @@ def get_safe_formula(cell):
     return ""
 
 if uploaded_file is not None:
-    # ถ้าไม่ได้พิมพ์ชื่อ จะดึงชื่อไฟล์มาใช้แทนอัตโนมัติ
-    if not student_name:
-        student_name = uploaded_file.name
-
     st.info("🔄 กำลังประมวลผลไฟล์ กรุณารอสักครู่...")
     
     try:
+        # โหลดไฟล์
         wb_formula = openpyxl.load_workbook(uploaded_file, data_only=False)
         wb_data = openpyxl.load_workbook(uploaded_file, data_only=True)
         sheet_names = wb_formula.sheetnames
@@ -78,14 +57,14 @@ if uploaded_file is not None:
                 
                 if any("RANK" in get_safe_formula(ws_form[f'M{r}']) for r in range(3, 10)): c2 += 3
                 
-                st.success(f"คำนวณ Student_Scores อัตโนมัติได้: {c2}/18 คะแนน (รอ Manual อีก 6)")
+                st.success(f"คำนวณ Student_Scores อัตโนมัติได้: {c2}/18 คะแนน")
 
             # --- หมวด 3: Student_Scores2 (สูตร 4 + Manual 3 = 7 คะแนน) ---
             if "Student_Scores2" in sheet_names:
                 c3 += 1
                 ws_form2 = wb_formula["Student_Scores2"]
                 if any("STUDENT_SCORES!" in get_safe_formula(ws_form2[f'B{r}']) for r in range(2, 10)): c3 += 3
-                st.success(f"เชื่อมโยง Student_Scores2 อัตโนมัติได้: {c3}/4 คะแนน (รอ Manual อีก 3)")
+                st.success(f"เชื่อมโยง Student_Scores2 อัตโนมัติได้: {c3}/4 คะแนน")
 
             # --- หมวด 5: สร้าง Grade_Summary (สูตร 1 + Manual 1 = 2 คะแนน) ---
             if "Grade_Summary" in sheet_names:
@@ -110,7 +89,7 @@ if uploaded_file is not None:
                 
                 if "COUNT(" in dash_formulas or "COUNTA(" in dash_formulas: c8 += 2
                 if dash_formulas.count("COUNTIF(") >= 2: c8 += 10
-                st.success(f"คำนวณ Dashboard อัตโนมัติได้: {c8}/12 คะแนน (รอ Manual อีก 12)")
+                st.success(f"คำนวณ Dashboard อัตโนมัติได้: {c8}/12 คะแนน")
 
         with col_right:
             st.header("✍️ ส่วนตรวจด้วยสายตา (Manual)")
@@ -144,40 +123,9 @@ if uploaded_file is not None:
         total_score = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9
         
         st.divider()
-        st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมนักศึกษาคนนี้: {total_score} / 100</h1>", unsafe_allow_html=True)
-        
-        # ==========================================
-        # ปุ่มออกคะแนน (แสดงผลลงตารางบนเว็บ)
-        # ==========================================
-        if st.button("🎯 ออกคะแนนลงตาราง", use_container_width=True):
-            new_row = {
-                "ชื่อผู้เข้าแข่งขัน / ชื่อไฟล์": student_name,
-                "1. เตรียมแผ่นงาน (1)": c1,
-                "2. คำนวณคะแนน (24)": c2,
-                "3. เชื่อมโยงข้อมูล (7)": c3,
-                "4. สรุป Report (12)": c4,
-                "5. สร้างชีตเกรด (2)": c5,
-                "6. ตัดเกรด (18)": c6,
-                "7. เพิ่มชีตแดชบอร์ด (2)": c7,
-                "8. กราฟแดชบอร์ด (24)": c8,
-                "9. หน้ากระดาษ & PDF (10)": c9,
-                "รวมคะแนน (100)": total_score
-            }
-            st.session_state['results_df'] = pd.concat([st.session_state['results_df'], pd.DataFrame([new_row])], ignore_index=True)
-            st.success(f"✅ เพิ่มคะแนนของ {student_name} ลงตารางแสดงผลด้านล่างเรียบร้อยแล้ว!")
+        st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมสุทธิ: {total_score} / 100</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='text-align: center;'>หมวด 1: {c1} | หมวด 2: {c2} | หมวด 3: {c3} | หมวด 4: {c4} | หมวด 5: {c5}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='text-align: center;'>หมวด 6: {c6} | หมวด 7: {c7} | หมวด 8: {c8} | หมวด 9 (PDF): {c9}</h3>", unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ รายละเอียด: {e}")
-
-# ==========================================
-# แสดงตารางสรุปผลบนหน้าเว็บ
-# ==========================================
-if not st.session_state['results_df'].empty:
-    st.divider()
-    st.header("📑 ตารางสรุปคะแนน")
-    # แสดงตารางแบบซ่อน Index (เลขลำดับข้างหน้า) เพื่อความสะอาดตา
-    st.dataframe(st.session_state['results_df'], use_container_width=True, hide_index=True)
-    
-    if st.button("🗑️ ล้างข้อมูลตารางทั้งหมด"):
-        st.session_state['results_df'] = st.session_state['results_df'].iloc[0:0] 
-        st.rerun()
