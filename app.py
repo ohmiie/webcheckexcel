@@ -1,6 +1,5 @@
 import streamlit as st
 import openpyxl
-import pandas as pd
 
 # ---------------------------------------------------------
 # การตั้งค่าหน้าเว็บ
@@ -126,24 +125,90 @@ if uploaded_file is not None:
         st.divider()
         st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมสุทธิ: {total_score} / 100</h1>", unsafe_allow_html=True)
         
-        # สร้างตารางข้อมูลให้ตรงกับหัวข้อแบบเป๊ะๆ
-        summary_data = {
-            "การจัดเตรียมแผ่นงานและบันทึกข้อมูล (1 คะแนน)": [c1],
-            'การคำนวณและประมวลผลข้อมูลใน Sheet "Student_Scores" (24 คะแนน)': [c2],
-            'การเชื่อมโยงและจัดเรียงข้อมูล\nใน Sheet "Student_Scores2" (7 คะแนน)': [c3],
-            'การรายงานตารางสรุปข้อมูลใน Sheet "Report_Table" (12 คะแนน)': [c4],
-            'การสร้างแผ่นงานประมวลผลเกรด Sheet "Grade_Summary" (2 คะแนน)': [c5],
-            'การคำนวณเกรดและสถานะประเมินใน Sheet "Grade_Summary" (18 คะแนน)': [c6],
-            'การเพิ่มแผ่นงานแดชบอร์ด Sheet "Report_Dashboard" (2 คะแนน)': [c7],
-            'การสร้างแดชบอร์ดสรุปผลและแผนภูมิใน Sheet "Report_Dashboard" (24 คะแนน)': [c8],
-            'การตั้งค่าหน้ากระดาษและการพิมพ์รูปแบบ PDF (10 คะแนน)': [c9],
-            "รวม (100 คะแนน)": [total_score]
-        }
+        # ==========================================
+        # ตาราง HTML CSS ตะแคง 45 องศา
+        # ==========================================
+        st.markdown("### 📋 สรุปคะแนน (คลุมดำแล้ว Copy ไปวางใน Excel ได้เลย)")
         
-        summary_df = pd.DataFrame(summary_data)
+        html_table = f"""
+        <style>
+        .score-table-container {{
+            overflow-x: auto;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            margin-bottom: 50px;
+        }}
+        table.custom-score-table {{
+            border-collapse: collapse;
+            width: 100%;
+            background-color: white;
+            font-family: sans-serif;
+        }}
+        table.custom-score-table th {{
+            height: 280px; /* เพิ่มความสูงให้ข้อความตะแคงไม่ตกขอบ */
+            width: 60px; /* บีบความกว้างแต่ละคอลัมน์ให้กระชับ */
+            position: relative;
+            border: 1px solid #ddd;
+            background-color: #f1f3f6;
+            vertical-align: bottom;
+        }}
+        table.custom-score-table th > div {{
+            position: absolute;
+            bottom: 20px;
+            left: 50%; /* ดันมาตรงกลาง */
+            transform-origin: left bottom;
+            transform: translate(-50%, 0) rotate(-45deg); /* ตะแคง 45 องศา */
+            white-space: nowrap;
+            font-size: 13px;
+            color: #333;
+            line-height: 1.2;
+        }}
+        table.custom-score-table td {{
+            border: 1px solid #ddd;
+            text-align: center;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }}
+        </style>
+
+        <div class="score-table-container">
+            <table class="custom-score-table">
+                <thead>
+                    <tr>
+                        <th><div>การจัดเตรียมแผ่นงานและบันทึกข้อมูล<br>(1 คะแนน)</div></th>
+                        <th><div>การคำนวณและประมวลผลข้อมูลใน Sheet "Student_Scores"<br>(24 คะแนน)</div></th>
+                        <th><div>การเชื่อมโยงและจัดเรียงข้อมูล<br>ใน Sheet "Student_Scores2" (7 คะแนน)</div></th>
+                        <th><div>การรายงานตารางสรุปข้อมูลใน Sheet "Report_Table"<br>(12 คะแนน)</div></th>
+                        <th><div>การสร้างแผ่นงานประมวลผลเกรด Sheet "Grade_Summary"<br>(2 คะแนน)</div></th>
+                        <th><div>การคำนวณเกรดและสถานะประเมินใน Sheet "Grade_Summary"<br>(18 คะแนน)</div></th>
+                        <th><div>การเพิ่มแผ่นงานแดชบอร์ด Sheet "Report_Dashboard"<br>(2 คะแนน)</div></th>
+                        <th><div>การสร้างแดชบอร์ดสรุปผลและแผนภูมิใน Sheet "Report_Dashboard"<br>(24 คะแนน)</div></th>
+                        <th><div>การตั้งค่าหน้ากระดาษและการพิมพ์รูปแบบ PDF<br>(10 คะแนน)</div></th>
+                        <th><div>รวม<br>(100 คะแนน)</div></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{c1}</td>
+                        <td>{c2}</td>
+                        <td>{c3}</td>
+                        <td>{c4}</td>
+                        <td>{c5}</td>
+                        <td>{c6}</td>
+                        <td>{c7}</td>
+                        <td>{c8}</td>
+                        <td>{c9}</td>
+                        <td style="color: #e74c3c; background-color: #fdf5f6;">{total_score}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        """
         
-        st.markdown("### 📋 สรุปคะแนนตามฟอร์มหัวข้อ")
-        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+        # เรนเดอร์ HTML ออกมาที่หน้าเว็บ
+        st.markdown(html_table, unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ รายละเอียด: {e}")
