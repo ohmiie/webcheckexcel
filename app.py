@@ -7,42 +7,30 @@ import pandas as pd
 # ---------------------------------------------------------
 st.set_page_config(page_title="ระบบประเมินทักษะ Excel", layout="wide", page_icon="📊")
 
-# สร้างตัวแปรเก็บข้อมูลตารางคะแนนรวม (ถ้ายังไม่มีให้สร้างใหม่)
+# สร้างตัวแปรเก็บข้อมูลตารางคะแนนรวม (ปรับหัวข้อให้กระชับ อ่านง่าย)
 if 'results_df' not in st.session_state:
     st.session_state['results_df'] = pd.DataFrame(columns=[
-        "ลำดับ", "โรงเรียน", "สังกัด", "จังหวัด", "ทีม", "ชื่อ-สกุล ผู้เข้าแข่งขัน",
-        "การจัดเตรียมแผ่นงานและบันทึกข้อมูล\n(1 คะแนน)",
-        'การคำนวณและประมวลผลข้อมูลใน Sheet "Student_Scores" (24 คะแนน)',
-        'การเชื่อมโยงและจัดเรียงข้อมูล\nใน Sheet "Student_Scores2"\n(7 คะแนน)',
-        'การรายงานตารางสรุปข้อมูลใน Sheet "Report_Table"\n(12 คะแนน)',
-        'การสร้างแผ่นงานประมวลผลเกรด Sheet "Grade_Summary"\n(2 คะแนน)',
-        'การคำนวณเกรดและสถานะประเมินใน Sheet "Grade_Summary"\n(18 คะแนน)',
-        'การเพิ่มแผ่นงานแดชบอร์ด Sheet "Report_Dashboard"\n(2 คะแนน)',
-        'การสร้างแดชบอร์ดสรุปผลและแผนภูมิใน Sheet "Report_Dashboard"\n(24 คะแนน)',
-        'การตั้งค่าหน้ากระดาษและการพิมพ์รูปแบบ PDF\n(10 คะแนน)',
-        "รวม\n(100 คะแนน)"
+        "ชื่อผู้เข้าแข่งขัน / ชื่อไฟล์",
+        "1. เตรียมแผ่นงาน (1)",
+        "2. คำนวณคะแนน (24)",
+        "3. เชื่อมโยงข้อมูล (7)",
+        "4. สรุป Report (12)",
+        "5. สร้างชีตเกรด (2)",
+        "6. ตัดเกรด (18)",
+        "7. เพิ่มชีตแดชบอร์ด (2)",
+        "8. กราฟแดชบอร์ด (24)",
+        "9. หน้ากระดาษ & PDF (10)",
+        "รวมคะแนน (100)"
     ])
 
 st.title("📊 ระบบประเมินและให้คะแนนทักษะวิชาการ Excel")
 
 # ==========================================
-# ส่วนฟอร์มกรอกข้อมูลผู้เข้าแข่งขัน
+# อัปโหลดไฟล์ & ชื่อนักศึกษา (แบบกระชับ)
 # ==========================================
-with st.expander("📝 1. กรอกข้อมูลผู้เข้าแข่งขัน", expanded=True):
-    col_i1, col_i2, col_i3 = st.columns(3)
-    order_no = col_i1.text_input("ลำดับ", placeholder="เช่น 1")
-    school = col_i2.text_input("โรงเรียน", placeholder="เช่น วิทยาลัยอาชีวศึกษา...")
-    affiliation = col_i3.text_input("สังกัด", placeholder="เช่น เทศบาลนครนครปฐม")
-    
-    col_i4, col_i5, col_i6 = st.columns(3)
-    province = col_i4.text_input("จังหวัด", placeholder="เช่น นครปฐม")
-    team = col_i5.text_input("ทีม", placeholder="เช่น ทีม A")
-    student_name = col_i6.text_input("ชื่อ-สกุล ผู้เข้าแข่งขัน", placeholder="เช่น นางสาวเม ทา ซิน ปุย")
-
-# ==========================================
-# อัปโหลดไฟล์
-# ==========================================
-uploaded_file = st.file_uploader("📂 2. อัปโหลดไฟล์ Excel ของผู้เข้าแข่งขัน (.xlsx)", type=["xlsx"])
+col_up1, col_up2 = st.columns([1, 2])
+student_name = col_up1.text_input("👤 ชื่อนักศึกษา (ปล่อยว่างได้ ระบบจะใช้ชื่อไฟล์แทน)")
+uploaded_file = col_up2.file_uploader("📂 อัปโหลดไฟล์ Excel ของนักศึกษา (.xlsx)", type=["xlsx"])
 
 # ตัวแปรเก็บคะแนนแต่ละหมวด
 c1, c2, c3, c4, c5, c6, c7, c8, c9 = 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -53,6 +41,10 @@ def get_safe_formula(cell):
     return ""
 
 if uploaded_file is not None:
+    # ถ้าไม่ได้พิมพ์ชื่อ จะดึงชื่อไฟล์มาใช้แทนอัตโนมัติ
+    if not student_name:
+        student_name = uploaded_file.name
+
     st.info("🔄 กำลังประมวลผลไฟล์ กรุณารอสักครู่...")
     
     try:
@@ -152,35 +144,27 @@ if uploaded_file is not None:
         total_score = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9
         
         st.divider()
-        st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมสุทธิ: {total_score} / 100</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมนักศึกษาคนนี้: {total_score} / 100</h1>", unsafe_allow_html=True)
         
         # ==========================================
         # ปุ่มออกคะแนน (แสดงผลลงตารางบนเว็บ)
         # ==========================================
-        if st.button("🎯 ออกคะแนน", use_container_width=True):
-            if student_name == "":
-                st.warning("⚠️ กรุณากรอกชื่อผู้เข้าแข่งขันก่อนออกคะแนน")
-            else:
-                new_row = {
-                    "ลำดับ": order_no, 
-                    "โรงเรียน": school, 
-                    "สังกัด": affiliation, 
-                    "จังหวัด": province, 
-                    "ทีม": team, 
-                    "ชื่อ-สกุล ผู้เข้าแข่งขัน": student_name,
-                    "การจัดเตรียมแผ่นงานและบันทึกข้อมูล\n(1 คะแนน)": c1,
-                    'การคำนวณและประมวลผลข้อมูลใน Sheet "Student_Scores" (24 คะแนน)': c2,
-                    'การเชื่อมโยงและจัดเรียงข้อมูล\nใน Sheet "Student_Scores2"\n(7 คะแนน)': c3,
-                    'การรายงานตารางสรุปข้อมูลใน Sheet "Report_Table"\n(12 คะแนน)': c4,
-                    'การสร้างแผ่นงานประมวลผลเกรด Sheet "Grade_Summary"\n(2 คะแนน)': c5,
-                    'การคำนวณเกรดและสถานะประเมินใน Sheet "Grade_Summary"\n(18 คะแนน)': c6,
-                    'การเพิ่มแผ่นงานแดชบอร์ด Sheet "Report_Dashboard"\n(2 คะแนน)': c7,
-                    'การสร้างแดชบอร์ดสรุปผลและแผนภูมิใน Sheet "Report_Dashboard"\n(24 คะแนน)': c8,
-                    'การตั้งค่าหน้ากระดาษและการพิมพ์รูปแบบ PDF\n(10 คะแนน)': c9,
-                    "รวม\n(100 คะแนน)": total_score
-                }
-                st.session_state['results_df'] = pd.concat([st.session_state['results_df'], pd.DataFrame([new_row])], ignore_index=True)
-                st.success(f"✅ เพิ่มคะแนนของ {student_name} ลงตารางแสดงผลด้านล่างเรียบร้อยแล้ว!")
+        if st.button("🎯 ออกคะแนนลงตาราง", use_container_width=True):
+            new_row = {
+                "ชื่อผู้เข้าแข่งขัน / ชื่อไฟล์": student_name,
+                "1. เตรียมแผ่นงาน (1)": c1,
+                "2. คำนวณคะแนน (24)": c2,
+                "3. เชื่อมโยงข้อมูล (7)": c3,
+                "4. สรุป Report (12)": c4,
+                "5. สร้างชีตเกรด (2)": c5,
+                "6. ตัดเกรด (18)": c6,
+                "7. เพิ่มชีตแดชบอร์ด (2)": c7,
+                "8. กราฟแดชบอร์ด (24)": c8,
+                "9. หน้ากระดาษ & PDF (10)": c9,
+                "รวมคะแนน (100)": total_score
+            }
+            st.session_state['results_df'] = pd.concat([st.session_state['results_df'], pd.DataFrame([new_row])], ignore_index=True)
+            st.success(f"✅ เพิ่มคะแนนของ {student_name} ลงตารางแสดงผลด้านล่างเรียบร้อยแล้ว!")
 
     except Exception as e:
         st.error(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ รายละเอียด: {e}")
@@ -190,8 +174,9 @@ if uploaded_file is not None:
 # ==========================================
 if not st.session_state['results_df'].empty:
     st.divider()
-    st.header("📑 ตารางสรุปคะแนน (แสดงผลบนเว็บ)")
-    st.dataframe(st.session_state['results_df'], use_container_width=True)
+    st.header("📑 ตารางสรุปคะแนน")
+    # แสดงตารางแบบซ่อน Index (เลขลำดับข้างหน้า) เพื่อความสะอาดตา
+    st.dataframe(st.session_state['results_df'], use_container_width=True, hide_index=True)
     
     if st.button("🗑️ ล้างข้อมูลตารางทั้งหมด"):
         st.session_state['results_df'] = st.session_state['results_df'].iloc[0:0] 
