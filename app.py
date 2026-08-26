@@ -1,5 +1,6 @@
 import streamlit as st
 import openpyxl
+import pandas as pd
 
 # ---------------------------------------------------------
 # การตั้งค่าหน้าเว็บ
@@ -124,8 +125,25 @@ if uploaded_file is not None:
         
         st.divider()
         st.markdown(f"<h1 style='text-align: center; color: #1f77b4;'>🏆 คะแนนรวมสุทธิ: {total_score} / 100</h1>", unsafe_allow_html=True)
-        st.markdown(f"<h3 style='text-align: center;'>หมวด 1: {c1} | หมวด 2: {c2} | หมวด 3: {c3} | หมวด 4: {c4} | หมวด 5: {c5}</h3>", unsafe_allow_html=True)
-        st.markdown(f"<h3 style='text-align: center;'>หมวด 6: {c6} | หมวด 7: {c7} | หมวด 8: {c8} | หมวด 9 (PDF): {c9}</h3>", unsafe_allow_html=True)
+        
+        # สร้างตารางข้อมูลให้ตรงกับหัวข้อแบบเป๊ะๆ
+        summary_data = {
+            "การจัดเตรียมแผ่นงานและบันทึกข้อมูล (1 คะแนน)": [c1],
+            'การคำนวณและประมวลผลข้อมูลใน Sheet "Student_Scores" (24 คะแนน)': [c2],
+            'การเชื่อมโยงและจัดเรียงข้อมูล\nใน Sheet "Student_Scores2" (7 คะแนน)': [c3],
+            'การรายงานตารางสรุปข้อมูลใน Sheet "Report_Table" (12 คะแนน)': [c4],
+            'การสร้างแผ่นงานประมวลผลเกรด Sheet "Grade_Summary" (2 คะแนน)': [c5],
+            'การคำนวณเกรดและสถานะประเมินใน Sheet "Grade_Summary" (18 คะแนน)': [c6],
+            'การเพิ่มแผ่นงานแดชบอร์ด Sheet "Report_Dashboard" (2 คะแนน)': [c7],
+            'การสร้างแดชบอร์ดสรุปผลและแผนภูมิใน Sheet "Report_Dashboard" (24 คะแนน)': [c8],
+            'การตั้งค่าหน้ากระดาษและการพิมพ์รูปแบบ PDF (10 คะแนน)': [c9],
+            "รวม (100 คะแนน)": [total_score]
+        }
+        
+        summary_df = pd.DataFrame(summary_data)
+        
+        st.markdown("### 📋 สรุปคะแนนตามฟอร์มหัวข้อ")
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
     except Exception as e:
         st.error(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ รายละเอียด: {e}")
