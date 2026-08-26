@@ -1,6 +1,5 @@
 import streamlit as st
 import openpyxl
-import pandas as pd
 
 # ---------------------------------------------------------
 # การตั้งค่าหน้าเว็บ
@@ -15,6 +14,12 @@ uploaded_file = st.file_uploader("📂 อัปโหลดไฟล์ Excel �
 # ตัวแปรเก็บคะแนนรวม
 total_score = 0
 max_score = 100
+
+# ฟังก์ชันตัวช่วยดึงข้อความจากเซลล์อย่างปลอดภัย (กัน Error กรณีเซลล์ว่าง)
+def get_safe_formula(cell):
+    if cell and cell.value:
+        return str(cell.value).upper()
+    return ""
 
 if uploaded_file is not None:
     st.info("🔄 กำลังประมวลผลไฟล์ กรุณารอสักครู่...")
@@ -42,8 +47,6 @@ if uploaded_file is not None:
                 
                 # ตรวจข้อ 1.2 รหัสนักศึกษา 50 คน
                 ws = wb_data["Student_Scores"]
-                # ลองเช็คแถวที่มีข้อมูล 50 รายการในคอลัมน์รหัสนักศึกษา (สมมติว่าเป็นคอลัมน์ B หรือ C)
-                # เพื่อความง่าย ตรวจว่ามีการใส่ข้อมูลในแถวที่ 50+ หรือไม่
                 if ws.max_row >= 50:
                     score_1 += 2
                     st.write("✅ 1.2 ป้อนข้อมูลลำดับ 1-50 และรหัสครบถ้วน (2/2)")
@@ -63,38 +66,38 @@ if uploaded_file is not None:
                 ws_form = wb_formula["Student_Scores"]
                 ws_dat = wb_data["Student_Scores"]
                 
-                # 2.1 ข้อมูลครบ (คะแนนช่วย, เช็คข้อมูลพื้นฐาน) - สมมติให้คะแนนถ้ามีคอลัมน์เยอะพอ
+                # 2.1 ข้อมูลครบ
                 if ws_dat.max_column >= 10:
                     score_2 += 2; st.write("✅ 2.1 นำเข้าข้อมูลคะแนนดิบและอื่นๆ ครบถ้วน (2/2)")
                 else: st.write("❌ 2.1 ข้อมูลคอลัมน์ไม่ครบถ้วน (0/2)")
 
                 # 2.2 เช็คสูตร SUM 
-                sum_found = any("SUM(" in str(ws_form[f'I{r}'].value).upper() for r in range(3, 10))
+                sum_found = any("SUM(" in get_safe_formula(ws_form[f'I{r}']) for r in range(3, 10))
                 if sum_found: score_2 += 3; st.write("✅ 2.2 คำนวณผลรวมคะแนนดิบด้วยฟังก์ชัน SUM (3/3)")
                 else: st.write("❌ 2.2 ไม่พบสูตร SUM ในคอลัมน์ผลรวม (0/3)")
 
                 # 2.3 เช็คสูตร IF หาคะแนนหักขาดเรียน
-                if_found = any("IF(" in str(ws_form[f'K{r}'].value).upper() for r in range(3, 10))
+                if_found = any("IF(" in get_safe_formula(ws_form[f'K{r}']) for r in range(3, 10))
                 if if_found: score_2 += 4; st.write("✅ 2.3 คำนวณคะแนนหักขาดเรียนด้วย IF (4/4)")
                 else: st.write("❌ 2.3 ไม่พบสูตร IF ในการหักคะแนนขาดเรียน (0/4)")
 
                 # 2.4 เช็คสูตรลบธรรมดา (-) สำหรับคะแนนสุทธิ
-                sub_found = any("-" in str(ws_form[f'L{r}'].value) for r in range(3, 10))
+                sub_found = any("-" in get_safe_formula(ws_form[f'L{r}']) for r in range(3, 10))
                 if sub_found: score_2 += 2; st.write("✅ 2.4 คำนวณคะแนนสุทธิถูกต้อง (2/2)")
                 else: st.write("❌ 2.4 ไม่พบการคำนวณคะแนนสุทธิ (0/2)")
 
-               # 2.5 Named Range "Net_Score_Data"
-if "Net_Score_Data" in wb_formula.defined_names:
-    score_2 += 2; st.write("✅ 2.5 กำหนดชื่อ Named Range 'Net_Score_Data' ถูกต้อง (2/2)")
-else: 
-    st.write("❌ 2.5 ไม่พบ Named Range ชื่อ 'Net_Score_Data' (0/2)")
+                # 2.5 Named Range "Net_Score_Data" (อัปเดตโค้ดใหม่แล้ว)
+                if "Net_Score_Data" in wb_formula.defined_names:
+                    score_2 += 2; st.write("✅ 2.5 กำหนดชื่อ Named Range 'Net_Score_Data' ถูกต้อง (2/2)")
+                else: 
+                    st.write("❌ 2.5 ไม่พบ Named Range ชื่อ 'Net_Score_Data' (0/2)")
 
                 # 2.6 RANK หรือ RANK.EQ
-                rank_found = any("RANK" in str(ws_form[f'M{r}'].value).upper() for r in range(3, 10))
+                rank_found = any("RANK" in get_safe_formula(ws_form[f'M{r}']) for r in range(3, 10))
                 if rank_found: score_2 += 3; st.write("✅ 2.6 หาอันดับด้วยฟังก์ชัน RANK หรือ RANK.EQ (3/3)")
                 else: st.write("❌ 2.6 ไม่พบสูตร RANK สำหรับหาอันดับคะแนน (0/3)")
                 
-                st.warning("⚠️ ข้อ 2.7 (Sparklines 3 คะแนน) และ 2.8 (ฟังก์ชันบรรทัดล่างสุด 3 คะแนน) โปรดตรวจด้วยตนเองด้านขวามือ")
+                st.warning("⚠️ ข้อ 2.7 (Sparklines 3 คะแนน) และ 2.8 (ฟังก์ชันท้ายตาราง 3 คะแนน) โปรดตรวจด้วยตนเองด้านขวามือ")
             else:
                 st.error("❌ ข้ามการตรวจส่วนที่ 2 เนื่องจากไม่พบชีต 'Student_Scores'")
             total_score += score_2
@@ -106,9 +109,10 @@ else:
             score_3 = 0
             if "Student_Scores2" in sheet_names:
                 score_3 += 1; st.write("✅ 3.1 เปลี่ยนชื่อ Sheet เป็น 'Student_Scores2' (1/1)")
+                
                 # เช็คการ Link sheet
                 ws_form2 = wb_formula["Student_Scores2"]
-                linked = any("Student_Scores!" in str(ws_form2[f'B{r}'].value) for r in range(2, 10))
+                linked = any("STUDENT_SCORES!" in get_safe_formula(ws_form2[f'B{r}']) for r in range(2, 10))
                 if linked: score_3 += 3; st.write("✅ 3.2 ดึงข้อมูลเชื่อมโยง (Link Sheet) มาวางถูกต้อง (3/3)")
                 else: st.write("❌ 3.2 ไม่พบการทำ Link Sheet (0/3)")
                 
@@ -119,24 +123,25 @@ else:
             # ==========================================
             # ข้อ 5 & 6: การประมวลผลเกรด (2 + 18 = 20 คะแนน)
             # ==========================================
-            st.subheader("ส่วนที่ 5 และ 6: ชีต 'Grade_Summary' การตัดเกรด (20 คะแนน)")
+            st.subheader("ส่วนที่ 5 และ 6: ชีต 'Grade_Summary' (20 คะแนน)")
             score_56 = 0
             if "Grade_Summary" in sheet_names:
                 score_56 += 1; st.write("✅ 5.1 สร้างและเปลี่ยนชื่อ Sheet เป็น 'Grade_Summary' (1/1)")
                 
                 ws_grade = wb_formula["Grade_Summary"]
+                
                 # 6.1 Link Sheet
-                linked_g = any("Student_Scores!" in str(ws_grade[f'B{r}'].value) for r in range(3, 10))
+                linked_g = any("STUDENT_SCORES!" in get_safe_formula(ws_grade[f'B{r}']) for r in range(3, 10))
                 if linked_g: score_56 += 4; st.write("✅ 6.1 ดึงข้อมูลเชื่อมโยงมาถูกต้อง (4/4)")
                 else: st.write("❌ 6.1 ไม่พบการ Link Sheet ในตารางเกรด (0/4)")
 
                 # 6.2 Nested IF ตัดเกรด
-                nested_if = any(str(ws_grade[f'F{r}'].value).upper().count("IF(") >= 4 for r in range(3, 10))
+                nested_if = any(get_safe_formula(ws_grade[f'F{r}']).count("IF(") >= 4 for r in range(3, 10))
                 if nested_if: score_56 += 8; st.write("✅ 6.2 ใช้ Nested IF ตัดเกรด A,B,C,D,F ถูกต้อง (8/8)")
-                else: st.write("❌ 6.2 ไม่พบการใช้ Nested IF หริอซ้อนกันไม่ครบ (0/8)")
+                else: st.write("❌ 6.2 ไม่พบการใช้ Nested IF หรือซ้อนกันไม่ครบ (0/8)")
 
                 # 6.3 IF สถานะ
-                status_if = any("IF(" in str(ws_grade[f'G{r}'].value).upper() for r in range(3, 10))
+                status_if = any("IF(" in get_safe_formula(ws_grade[f'G{r}']) for r in range(3, 10))
                 if status_if: score_56 += 6; st.write("✅ 6.3 ใช้ฟังก์ชัน IF กำหนดสถานะผ่าน/ไม่ผ่าน (6/6)")
                 else: st.write("❌ 6.3 ไม่พบฟังก์ชัน IF กำหนดสถานะ (0/6)")
 
@@ -145,7 +150,7 @@ else:
             total_score += score_56
 
             # ==========================================
-            # ข้อ 7: แดชบอร์ดสรุปผล (26 คะแนน - โปรแกรมตรวจได้บางส่วน)
+            # ข้อ 7: แดชบอร์ดสรุปผล (26 คะแนน)
             # ==========================================
             st.subheader("ส่วนที่ 7: ชีต 'Report_Dashboard' (26 คะแนน)")
             score_7 = 0
@@ -155,7 +160,7 @@ else:
                 ws_dash = wb_formula["Report_Dashboard"]
                 
                 # หา COUNT/COUNTA
-                dash_formulas = " ".join([str(cell.value).upper() for row in ws_dash.iter_rows() for cell in row if cell.data_type == 'f'])
+                dash_formulas = " ".join([get_safe_formula(cell) for row in ws_dash.iter_rows() for cell in row if cell.data_type == 'f'])
                 
                 if "COUNT(" in dash_formulas or "COUNTA(" in dash_formulas:
                     score_7 += 2; st.write("✅ 7.3 ใช้ฟังก์ชัน COUNTA/COUNT หานักศึกษาทั้งหมด (2/2)")
@@ -169,6 +174,9 @@ else:
             else: st.write("❌ ไม่พบชีต 'Report_Dashboard' (0/26)")
             total_score += score_7
             
+        # ==========================================
+        # ส่วนที่ 2: ตรวจด้วยสายตา
+        # ==========================================
         with col2:
             st.header("✍️ ส่วนที่ 2: ตรวจด้วยสายตา (Manual Checklist)")
             st.markdown("ติ๊กถูกในช่องที่นักศึกษาทำถูกต้อง ระบบจะนำคะแนนไปบวกให้โดยอัตโนมัติ")
