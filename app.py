@@ -1,5 +1,6 @@
 import streamlit as st
 import openpyxl
+import pandas as pd
 
 # ---------------------------------------------------------
 # การตั้งค่าหน้าเว็บ
@@ -37,59 +38,136 @@ if uploaded_file is not None:
             st.header("🤖 ส่วนตรวจอัตโนมัติ (Auto-Grading)")
             
             # --- หมวด 1: เตรียมแผ่นงาน (1 คะแนน) ---
+            st.markdown("#### 1. การจัดเตรียมแผ่นงาน")
             if "Student_Scores" in sheet_names:
                 c1 += 1
-                st.write("✅ 1.1 เปลี่ยนชื่อ Sheet เป็น 'Student_Scores'")
+                st.success("✅ เปลี่ยนชื่อ Sheet เป็น 'Student_Scores' (ได้ 1 คะแนน)")
+            else:
+                st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบชีต 'Student_Scores' (คะแนน 0)")
             
             # --- หมวด 2: คำนวณ Student_Scores (สูตร 18 + Manual 6 = 24 คะแนน) ---
+            st.markdown("#### 2. การคำนวณข้อมูลใน Sheet 'Student_Scores'")
             if "Student_Scores" in sheet_names:
                 ws_form = wb_formula["Student_Scores"]
                 ws_dat = wb_data["Student_Scores"]
                 
-                if ws_dat.max_row >= 50: c2 += 2
-                if ws_dat.max_column >= 10: c2 += 2
+                if ws_dat.max_row >= 50: 
+                    c2 += 2
+                    st.success("✅ ป้อนข้อมูลนักศึกษาครบถ้วน (ได้ 2 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ข้อมูลไม่ครบ 50 รายการ (คะแนน 0)")
+                    
+                if ws_dat.max_column >= 10: 
+                    c2 += 2
+                    st.success("✅ นำเข้าข้อมูลคะแนนดิบและอื่นๆ ครบถ้วน (ได้ 2 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ข้อมูลคอลัมน์ไม่ครบถ้วน (คะแนน 0)")
                 
-                if any("SUM(" in get_safe_formula(ws_form[f'I{r}']) for r in range(3, 10)): c2 += 3
-                if any("IF(" in get_safe_formula(ws_form[f'K{r}']) for r in range(3, 10)): c2 += 4
-                if any("-" in get_safe_formula(ws_form[f'L{r}']) for r in range(3, 10)): c2 += 2
+                if any("SUM(" in get_safe_formula(ws_form[f'I{r}']) for r in range(3, 10)): 
+                    c2 += 3
+                    st.success("✅ คำนวณผลรวมคะแนนดิบด้วยฟังก์ชัน SUM (ได้ 3 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบสูตร SUM ในคอลัมน์ผลรวม (คะแนน 0)")
+                    
+                if any("IF(" in get_safe_formula(ws_form[f'K{r}']) for r in range(3, 10)): 
+                    c2 += 4
+                    st.success("✅ คำนวณคะแนนหักขาดเรียนด้วย IF (ได้ 4 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบสูตร IF ในการหักคะแนนขาดเรียน (คะแนน 0)")
+                    
+                if any("-" in get_safe_formula(ws_form[f'L{r}']) for r in range(3, 10)): 
+                    c2 += 2
+                    st.success("✅ คำนวณคะแนนสุทธิถูกต้อง (ได้ 2 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบการคำนวณคะแนนสุทธิ (คะแนน 0)")
                 
-                if "Net_Score_Data" in wb_formula.defined_names: c2 += 2
+                if "Net_Score_Data" in wb_formula.defined_names: 
+                    c2 += 2
+                    st.success("✅ กำหนดชื่อ Named Range 'Net_Score_Data' ถูกต้อง (ได้ 2 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบ Named Range ชื่อ 'Net_Score_Data' (คะแนน 0)")
                 
-                if any("RANK" in get_safe_formula(ws_form[f'M{r}']) for r in range(3, 10)): c2 += 3
-                
-                st.success(f"คำนวณ Student_Scores อัตโนมัติได้: {c2}/18 คะแนน")
+                if any("RANK" in get_safe_formula(ws_form[f'M{r}']) for r in range(3, 10)): 
+                    c2 += 3
+                    st.success("✅ หาอันดับด้วยฟังก์ชัน RANK หรือ RANK.EQ (ได้ 3 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบสูตร RANK หาอันดับคะแนน (คะแนน 0)")
+            else:
+                st.error("❌ ข้ามการตรวจหมวด 2 เนื่องจากไม่พบชีต 'Student_Scores'")
 
             # --- หมวด 3: Student_Scores2 (สูตร 4 + Manual 3 = 7 คะแนน) ---
+            st.markdown("#### 3. การเชื่อมโยงชีต 'Student_Scores2'")
             if "Student_Scores2" in sheet_names:
                 c3 += 1
+                st.success("✅ เปลี่ยนชื่อ Sheet เป็น 'Student_Scores2' (ได้ 1 คะแนน)")
                 ws_form2 = wb_formula["Student_Scores2"]
-                if any("STUDENT_SCORES!" in get_safe_formula(ws_form2[f'B{r}']) for r in range(2, 10)): c3 += 3
-                st.success(f"เชื่อมโยง Student_Scores2 อัตโนมัติได้: {c3}/4 คะแนน")
+                if any("STUDENT_SCORES!" in get_safe_formula(ws_form2[f'B{r}']) for r in range(2, 10)): 
+                    c3 += 3
+                    st.success("✅ ดึงข้อมูลเชื่อมโยง (Link Sheet) มาวางถูกต้อง (ได้ 3 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบการทำ Link Sheet (คะแนน 0)")
+            else:
+                st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบชีต 'Student_Scores2' (คะแนน 0)")
 
             # --- หมวด 5: สร้าง Grade_Summary (สูตร 1 + Manual 1 = 2 คะแนน) ---
+            st.markdown("#### 5. ชีต 'Grade_Summary'")
             if "Grade_Summary" in sheet_names:
                 c5 += 1
+                st.success("✅ สร้างและเปลี่ยนชื่อ Sheet เป็น 'Grade_Summary' (ได้ 1 คะแนน)")
+            else:
+                st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบชีต 'Grade_Summary' (คะแนน 0)")
 
             # --- หมวด 6: คำนวณ Grade_Summary (สูตร 18 = 18 คะแนน) ---
+            st.markdown("#### 6. การคำนวณเกรด 'Grade_Summary'")
             if "Grade_Summary" in sheet_names:
                 ws_grade = wb_formula["Grade_Summary"]
-                if any("STUDENT_SCORES!" in get_safe_formula(ws_grade[f'B{r}']) for r in range(3, 10)): c6 += 4
-                if any(get_safe_formula(ws_grade[f'F{r}']).count("IF(") >= 4 for r in range(3, 10)): c6 += 8
-                if any("IF(" in get_safe_formula(ws_grade[f'G{r}']) for r in range(3, 10)): c6 += 6
-                st.success(f"คำนวณเกรด Grade_Summary ได้: {c6}/18 คะแนน")
+                if any("STUDENT_SCORES!" in get_safe_formula(ws_grade[f'B{r}']) for r in range(3, 10)): 
+                    c6 += 4
+                    st.success("✅ ดึงข้อมูลเชื่อมโยงมาถูกต้อง (ได้ 4 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบการ Link Sheet ในตารางเกรด (คะแนน 0)")
+                    
+                if any(get_safe_formula(ws_grade[f'F{r}']).count("IF(") >= 4 for r in range(3, 10)): 
+                    c6 += 8
+                    st.success("✅ ใช้ Nested IF ตัดเกรด A,B,C,D,F ถูกต้อง (ได้ 8 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบการใช้ Nested IF หรือซ้อนกันไม่ครบ (คะแนน 0)")
+                    
+                if any("IF(" in get_safe_formula(ws_grade[f'G{r}']) for r in range(3, 10)): 
+                    c6 += 6
+                    st.success("✅ ใช้ฟังก์ชัน IF กำหนดสถานะผ่าน/ไม่ผ่าน (ได้ 6 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบฟังก์ชัน IF กำหนดสถานะ (คะแนน 0)")
+            else:
+                st.error("❌ ข้ามการตรวจหมวด 6 เนื่องจากไม่พบชีต 'Grade_Summary'")
 
             # --- หมวด 7: แดชบอร์ด (การเพิ่ม Sheet 2 คะแนน) ---
+            st.markdown("#### 7. ชีต 'Report_Dashboard'")
             if "Report_Dashboard" in sheet_names:
                 c7 += 2
+                st.success("✅ สร้างและเปลี่ยนชื่อ Sheet เป็น 'Report_Dashboard' (ได้ 2 คะแนน)")
+            else:
+                st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบชีต 'Report_Dashboard' (คะแนน 0)")
             
             # --- หมวด 8: แดชบอร์ดสรุปผล (สูตร 12 + Manual 12 = 24 คะแนน) ---
+            st.markdown("#### 8. การคำนวณแดชบอร์ดสรุปผล")
             if "Report_Dashboard" in sheet_names:
                 ws_dash = wb_formula["Report_Dashboard"]
                 dash_formulas = " ".join([get_safe_formula(cell) for row in ws_dash.iter_rows() for cell in row if cell.data_type == 'f'])
                 
-                if "COUNT(" in dash_formulas or "COUNTA(" in dash_formulas: c8 += 2
-                if dash_formulas.count("COUNTIF(") >= 2: c8 += 10
-                st.success(f"คำนวณ Dashboard อัตโนมัติได้: {c8}/12 คะแนน")
+                if "COUNT(" in dash_formulas or "COUNTA(" in dash_formulas: 
+                    c8 += 2
+                    st.success("✅ ใช้ฟังก์ชัน COUNTA/COUNT หานักศึกษาทั้งหมด (ได้ 2 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบฟังก์ชัน COUNT/COUNTA (คะแนน 0)")
+                    
+                if dash_formulas.count("COUNTIF(") >= 2: 
+                    c8 += 10
+                    st.success("✅ ใช้ฟังก์ชัน COUNTIF นับเกรด/กลุ่ม/สถานะ (ได้ 10 คะแนน)")
+                else: 
+                    st.error("❌ ไม่ตรงกับเกณฑ์: ไม่พบการใช้ COUNTIF ที่เพียงพอ (คะแนน 0)")
+            else:
+                st.error("❌ ข้ามการตรวจหมวด 8 เนื่องจากไม่พบชีต 'Report_Dashboard'")
 
         with col_right:
             st.header("✍️ ส่วนตรวจด้วยสายตา (Manual)")
@@ -145,8 +223,8 @@ if uploaded_file is not None:
             font-family: sans-serif;
         }}
         table.custom-score-table th {{
-            height: 280px; /* เพิ่มความสูงให้ข้อความตะแคงไม่ตกขอบ */
-            width: 60px; /* บีบความกว้างแต่ละคอลัมน์ให้กระชับ */
+            height: 280px;
+            width: 60px;
             position: relative;
             border: 1px solid #ddd;
             background-color: #f1f3f6;
@@ -155,9 +233,9 @@ if uploaded_file is not None:
         table.custom-score-table th > div {{
             position: absolute;
             bottom: 20px;
-            left: 50%; /* ดันมาตรงกลาง */
+            left: 50%;
             transform-origin: left bottom;
-            transform: translate(-50%, 0) rotate(-45deg); /* ตะแคง 45 องศา */
+            transform: translate(-50%, 0) rotate(-45deg);
             white-space: nowrap;
             font-size: 13px;
             color: #333;
